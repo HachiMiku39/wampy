@@ -50,6 +50,9 @@ arm-linux-gnueabihf-readelf -d "$BUILD/base/payload/wampy" | tee "$BUILD/logs/up
 fetch 'https://walkman.update.sony.net/fw/pc/A50/J/NW-A50_V1_02.exe' "$BUILD/base/sony-a50.exe"
 mkdir -p "$BUILD/sony" "$BUILD/sony/entries"
 python3 scripts/arm/extract-sony.py "$BUILD/base/sony-a50.exe" "$BUILD/sony"
+while IFS= read -r -d '' cabinet; do
+  7z x -y -o"$BUILD/sony/cab" "$cabinet"
+done < <(find "$BUILD/sony" -name '*.cab' -print0)
 SONY_UPG=$(find "$BUILD/sony" -name NW_WM_FW.UPG | head -1)
 test -n "$SONY_UPG"
 "$UPGTOOL" -m nw-a50 -e -z 2 -z 6 -o "$BUILD/sony/entries/" "$SONY_UPG"

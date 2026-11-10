@@ -21,7 +21,38 @@ def extract(source, output):
     output.mkdir(parents=True, exist_ok=True)
     files = []
     if data[off:off + 4] != b'UM\x03\x0a':
-        raise ValueError(f'Unknown Sony container at {off}: {data[off:off+64].hex()}')
+        # Legacy Packman has a file directory followed by stored payloads.
+        # Its CAB bytes are complemented (MSCF -> b2 ac bc b9).
+        version, directory_length, count = struct.unpack_from('<III', data, off + 24)
+        if version != 1 or not 0 < directory_length < 512 or not 0 < count < 512:
+            raise ValueError(f'Unknown Sony container at {off}: {data[off:off+64].hex()}')
+        position = off + 36 + directory_length * 2
+        entries = []
+        for _ in range(count):
+            length, size = struct.unpack_from('<II', data, position)
+            position += 8
+            if not 0 < length < 1024: raise ValueError('Invalid Packman filename')
+            name = data[position:position + 2 * length].decode('utf-16le')
+            position += 2 * length + 8  # file timestamp
+            win = PureWindowsPath(name)
+            if win.drive or win.root or '..' in win.parts: raise ValueError('Unsafe Packman path')
+            entries.append((win, size))
+        invert = bytes.maketrans(bytes(range(256)), bytes(255 - i for i in range(256)))
+        for win, size in entries:
+            if position + size > len(data): raise ValueError('Packman payload outside source')
+            content = data[position:position + size]
+            if content.startswith(b'\xb2\xac\xbc\xb9'):
+                content = content.translate(invert)
+                if not content.startswith(b'MSCF'): raise ValueError('Invalid complemented CAB')
+            target = output.joinpath(*win.parts)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(content)
+            files.append({'name': str(win), 'size': size, 'sha256': hashlib.sha256(content).hexdigest()})
+            position += size
+        manifest = {'source_sha256': hashlib.sha256(data).hexdigest(), 'files': files,
+                    'end_offset': position, 'remaining_bytes': len(data) - position}
+        (output / 'extraction_manifest.json').write_text(json.dumps(manifest, indent=2))
+        return manifest
     while data[off:off + 4] == b'UM\x03\x0a':
         method = struct.unpack_from('<I', data, off + 16)[0]
         compressed_crc, crc = struct.unpack_from('<II', data, off + 28)
