@@ -1,8 +1,9 @@
-# WM1A / WM1Z display adaptation — development preview
+# WM1A / WM1Z display adaptation — development build
 
-This branch targets the **first-generation NW-WM1A and NW-WM1Z**. It is a
-source preview, not a validated firmware installer. ARM linking and device
-validation are still required.
+This branch targets the **first-generation NW-WM1A and NW-WM1Z**. Development
+build **1.14.7-wm1az.1** includes a compiled ARM application, a Windows installer,
+a Walkman One service UPG and the upstream Walkman One uninstaller. The build
+and package checks passed; installation on a physical device is not yet validated.
 
 ## Display and input
 
@@ -65,7 +66,7 @@ is a separate PCM path and is not a replacement for Sony's USB DAC / DoP path.
 
 ## Checks and build status
 
-The source preview also fixes multilingual metadata handling. Glyph collection
+The development build also fixes multilingual metadata handling. Glyph collection
 includes albums and filenames, malformed UTF-8 always advances the decoder,
 and bounded text copies preserve whole characters. Uppercase fields explicitly
 decode UTF-8 and use locale-independent casing. Supplementary CJK uses ImGui's
@@ -96,15 +97,49 @@ The workflow `WM1A-Z display` also applies the combined ImGui/GLFW patches to
 their pinned commits and checks the actual backend sources with a Linux
 compiler. It does **not** build or certify the ARM application.
 
-The upstream ARM build currently requires Linux, the Sony sysroot and builder
-images referenced at a private `192.168.10.102:5000` registry. The development
-Mac has no Docker or ARM compiler. See [BUILD.md](BUILD.md) for the existing
-build process; its A50 firmware-extraction steps are not a WM1A/Z flashing guide.
+The new [WM1AZ ARM build workflow](.github/workflows/wm1az-arm.yml) uses the
+public Linaro GCC 4.9.4 ARM hard-float toolchain, pinned project submodules and
+a runtime SDK extracted statically from Sony's public A50 1.02 updater. It does
+not execute the Sony Windows updater or depend on the original private builder
+registry. Proprietary SDK libraries and Sony system images are not uploaded as
+build artifacts. The service libraries shipped by upstream Wampy are retained.
 
-Before producing an installer, complete an ARM build and verify on a backed-up
+[Build 42855949061 passed](https://github.com/HachiMiku39/wampy/actions/runs/42855949061)
+for application source commit `726115ce8ef356e0acdfe1df4193107cdc265b00`:
+
+- All production C/C++ sources compile and link for ARM EABI hard-float.
+- QEMU runs the original Sony ARM glibc loader in trace mode with immediate
+  relocation checks. Dependencies resolve without missing symbols; Wampy's
+  main function and hardware initialization do not execute in this check.
+- The original updater's first nine engine entries remain byte-for-byte
+  unchanged. The new Walkman One UPG is decrypted again and its engine and
+  userdata contents checked against the inputs.
+- NSIS produces a WM1A/Z-only Windows wizard, retaining the upstream install
+  and uninstall actions and the exact verified upstream scsitool.
+- A separate local check uses system libraries extracted from the supplied WM1
+  firmware, plus the unchanged service libraries. Required library versions
+  and 3,458 strong symbol imports resolve without missing dependencies. This
+  is an ABI/symbol check, not device execution.
+
+To reproduce on Ubuntu 22.04, install the utilities listed in the workflow,
+check out this branch and run from the repository root:
+
+```sh
+bash scripts/arm/prepare.sh
+python3 scripts/arm/compile.py
+python3 scripts/arm/check-loader.py
+python3 scripts/arm/package.py
+```
+
+Outputs are in `.arm-build/output/`; logs and compile commands are in
+`.arm-build/logs/`. Public compiler/header downloads are cached in `.arm-cache/`.
+The older [BUILD.md](BUILD.md) remains as the upstream build reference; its A50
+extraction steps are not a WM1A/Z flashing guide.
+
+Before treating the installer as hardware-validated, check on a backed-up
 device: all four touch corners, popup clipping, full-screen/legacy alignment,
 physical buttons, suspend/wake and return to Sony UI. Then check PCM, DSD64,
-DSD128 and Sony USB DAC mode. No device was flashed during this source change.
+DSD128 and Sony USB DAC mode. No device was flashed during this build.
 
 ## Installation path verified against upstream
 
@@ -125,8 +160,11 @@ the pinned installer's value. The firmware identifies itself as WM1Z/3.02 with
 of the physical chassis model. No upgrade command was issued.
 
 Windows ARM is therefore usable for this installation front end in the tested
-VM. It does not replace the Linux ARM cross-build. The source preview still
-has no newly compiled ARM application or installable package. The service
-installer does not consume the supplied full system image, so that image's
+VM. It does not replace the Linux ARM cross-build. The new Windows installer
+is now built, but has not been run against the device. For this user-confirmed
+Walkman One setup, select Install → NW-WM1A/Z → YES for Walkman One and choose
+the internal WALKMAN volume. The standalone UPG uses Walkman One encryption
+and must not be substituted for a stock-firmware UPG. The service installer
+does not consume the supplied full system image, so that image's
 inner-manifest mismatch is specifically a concern for repacking the full
 firmware; it is not by itself a blocker to the original service-install route.

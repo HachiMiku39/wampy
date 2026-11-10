@@ -3,9 +3,10 @@ Wampy
 
 Interface addon for NW-A50 / ZX300 / WM1A / WM1Z series WALKMAN® players.
 
-This fork's [WM1A/Z development preview](WM1AZ.md) adds an optional 854 × 480
-full-screen transform, matching touch input and multilingual font handling. ARM build and hardware validation
-are pending; this branch does not provide a validated WM1A/Z installer.
+This fork's [WM1A/Z development build](WM1AZ.md) adds an optional 854 × 480
+full-screen transform, matching touch input and multilingual font handling.
+The ARM application and original-style Windows/Walkman One installers have
+built successfully. Hardware installation and rendering/audio validation remain pending.
 
 Also works on Walkman One for [NW-A50][1] / [A40][2] / [A30][3] / [ZX300][4] / [WM1A/Z][5].
 
