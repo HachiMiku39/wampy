@@ -34,6 +34,13 @@ git submodule update --init --depth 1 libs/glfw libs/imgui libs/zlib libs/glm li
 git -C libs/imgui apply ../imgui.patch
 git -C libs/glfw apply ../glfw.patch
 git -C libs/implot apply ../implot.patch
+# Match the pinned protobuf runtime (3.21.12), rather than the host distro's
+# protoc. Generated sources are intentionally excluded from the repository.
+fetch 'https://github.com/protocolbuffers/protobuf/releases/download/v21.12/protoc-21.12-linux-x86_64.zip' "$CACHE/protoc-21.12.zip"
+mkdir -p "$BUILD/protoc"
+unzip -q -o "$CACHE/protoc-21.12.zip" -d "$BUILD/protoc"
+"$BUILD/protoc/bin/protoc" --version
+"$BUILD/protoc/bin/protoc" -I=server/armv5-unknown-linux-gnueabihf --cpp_out=server/armv5-unknown-linux-gnueabihf server/armv5-unknown-linux-gnueabihf/command.proto
 make -C nw-installer/tools/upgtool/upgtools -j2
 UPGTOOL="$ROOT/nw-installer/tools/upgtool/upgtools/upgtool"
 "$UPGTOOL" --help || true

@@ -8,7 +8,7 @@ source='\n'.join(line.split('#',1)[0] for line in source.splitlines())
 source=source.replace('${IMGUI_DIR}','libs/imgui').replace('${PROTOBUF_SOURCE}','server/armv5-unknown-linux-gnueabihf/command.pb.cc').replace('${CONNECTOR_SOURCE}','src/connector/hagoromo.cpp server/armv5-unknown-linux-gnueabihf/command_names.cpp')
 files=[p for p in source.split() if p.endswith(('.c','.cc','.cpp'))]
 (root/'src/Version.h').write_text('#pragma once\n#define SOFTWARE_VERSION "1.14.7-wm1az.1"\n')
-includes=['src','src/util','libs/imgui','libs/imgui/backends','libs/glfw/include','libs','libs/glad/include','libs/glad/include/KHR','libs/glm','libs/implot','libs/mINI/src','libs/zlib','libs/ImageMagick','libs/ImageMagick/Magick++/lib','libs/protobuf/src','server/armv5-unknown-linux-gnueabihf','pstserver','sound_service_fw',str(build/'icu/source/common'),str(build/'icu/source/i18n'),str(build/'alsa/include'),str(build/'sqlite'),str(build/'include')]
+includes=['src','src/util','libs/imgui','libs/imgui/backends','libs/glfw/include','libs','libs/glad/include','libs/glad/include/KHR','libs/glm','libs/implot','libs/mINI/src',str(build/'zlib'),'libs/zlib','libs/ImageMagick','libs/ImageMagick/Magick++/lib','libs/protobuf/src','server/armv5-unknown-linux-gnueabihf','pstserver','sound_service_fw',str(build/'icu/source/common'),str(build/'icu/source/i18n'),str(build/'alsa/include'),str(build/'sqlite'),str(build/'include')]
 flags=['-O2','-g','-fno-omit-frame-pointer','-DMAGICKCORE_HDRI_ENABLE=1','-DMAGICKCORE_QUANTUM_DEPTH=32','-DIMGUI_USER_CONFIG="../../src/imgui.config.h"','-D__GCC_HAVE_SYNC_COMPARE_AND_SWAP_1','-D__GCC_HAVE_SYNC_COMPARE_AND_SWAP_2','-D__GCC_HAVE_SYNC_COMPARE_AND_SWAP_4']+['-I'+p for p in includes]
 objects=[]; commands=[]
 for p in files:
