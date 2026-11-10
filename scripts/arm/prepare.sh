@@ -49,7 +49,12 @@ arm-linux-gnueabihf-readelf -d "$BUILD/base/payload/wampy" | tee "$BUILD/logs/up
 # from the existing upstream service package, not from this system image.
 fetch 'https://walkman.update.sony.net/fw/pc/A50/J/NW-A50_V1_02.exe' "$BUILD/base/sony-a50.exe"
 mkdir -p "$BUILD/sony" "$BUILD/sony/entries"
-7z x -y -o"$BUILD/sony" "$BUILD/base/sony-a50.exe" >/dev/null
+status=0
+7z x -y -o"$BUILD/sony" "$BUILD/base/sony-a50.exe" || status=$?
+# 7-Zip uses exit 1 for warnings. The UPG's own checksum/signature is
+# independently checked below; an extraction error (>1) remains fatal.
+if (( status > 1 )); then exit "$status"; fi
+find "$BUILD/sony" -maxdepth 5 -type f -printf '%P %s bytes\n' 
 SONY_UPG=$(find "$BUILD/sony" -name NW_WM_FW.UPG | head -1)
 test -n "$SONY_UPG"
 "$UPGTOOL" -m nw-a50 -e -z 6 -o "$BUILD/sony/entries/" "$SONY_UPG"
