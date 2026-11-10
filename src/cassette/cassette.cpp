@@ -5,6 +5,9 @@
 #include "langToString/langToString.h"
 #include "util_string.h"
 #include "wstring.h"
+#include "text/utf8.h"
+#include "text/unicode.h"
+#include "text/font_fallback.h"
 
 #include <config.h>
 #include <fstream>
@@ -76,7 +79,8 @@ namespace Cassette {
 
         ImFontGlyphRangesBuilder range;
         range.Clear();
-        ImVector<ImWchar> gr;
+        // The atlas retains this pointer for later texture rebuilds.
+        static ImVector<ImWchar> gr;
         gr.clear();
 
         range.AddRanges(io.Fonts->GetGlyphRangesDefault());
@@ -118,7 +122,8 @@ namespace Cassette {
             fp = FontPathCustom2;
         }
 
-        *fontRegular = io.Fonts->AddFontFromFileTTF(fp.c_str(), fontSizeTTF, nullptr, gr.Data);
+        *fontRegular = WampyText::AddPrimaryFont(io.Fonts, fp, fontSizeTTF, gr.Data);
+        WampyText::AddSonyFontFallbacks(io.Fonts, *fontRegular, fontSizeTTF, gr.Data, fp);
 
         ImGui_ImplOpenGL3_DestroyFontsTexture();
         ImGui_ImplOpenGL3_CreateFontsTexture();
@@ -650,14 +655,12 @@ namespace Cassette {
         auto song = connector->playlist.at(0);
 
         std::string tempAlbum = song.Album.empty() ? connector->status.Album : song.Album;
-        std::string tempTitle = song.Title;
-        std::string tempArtist = song.Artist;
         std::string upperAlbum;
         std::string upperTitle;
         std::string upperArtist;
-        icu::UnicodeString((song.Album.empty() ? connector->status.Album : song.Album).c_str()).toUpper().toUTF8String(upperAlbum);
-        icu::UnicodeString(song.Title.c_str()).toUpper().toUTF8String(upperTitle);
-        icu::UnicodeString(song.Artist.c_str()).toUpper().toUTF8String(upperArtist);
+        upperAlbum = WampyText::UpperUtf8(tempAlbum);
+        upperTitle = WampyText::UpperUtf8(song.Title);
+        upperArtist = WampyText::UpperUtf8(song.Artist);
         char croppedArtist[FIELD_SIZE]{0};
         char croppedTitle[FIELD_SIZE]{0};
         char croppedAlbum[FIELD_SIZE]{0};
@@ -684,10 +687,10 @@ namespace Cassette {
             replace(formatArtist, "$year", connector->status.Date);
             replace(formatArtist, "$duration", duration);
 
-            strncpy(croppedArtist, formatArtist.c_str(), FIELD_SIZE);
+            WampyText::CopyUtf8(croppedArtist, sizeof(croppedArtist), formatArtist);
             if (croppedArtist[0] != '\0') {
                 font->FontSize = fontSizeTTF;
-                CropTextToWidth(croppedArtist, font, fontSizeTTF, Tapes[config->Get(tapeType)->tape].titleWidth);
+                CropTextToWidth(croppedArtist, sizeof(croppedArtist), font, fontSizeTTF, Tapes[config->Get(tapeType)->tape].titleWidth);
                 font->FontSize = sizeBackup;
             }
         }
@@ -704,10 +707,10 @@ namespace Cassette {
             replace(formatTitle, "$year", connector->status.Date);
             replace(formatTitle, "$duration", duration);
 
-            strncpy(croppedTitle, formatTitle.c_str(), FIELD_SIZE);
-            if (tempTitle[0] != '\0') {
+            WampyText::CopyUtf8(croppedTitle, sizeof(croppedTitle), formatTitle);
+            if (croppedTitle[0] != '\0') {
                 font->FontSize = fontSizeTTF;
-                CropTextToWidth(croppedTitle, ImGui::GetFont(), fontSizeTTF, Tapes[config->Get(tapeType)->tape].titleWidth);
+                CropTextToWidth(croppedTitle, sizeof(croppedTitle), ImGui::GetFont(), fontSizeTTF, Tapes[config->Get(tapeType)->tape].titleWidth);
                 font->FontSize = sizeBackup;
             }
         }
@@ -724,17 +727,17 @@ namespace Cassette {
             replace(formatAlbum, "$year", connector->status.Date);
             replace(formatAlbum, "$duration", duration);
 
-            strncpy(croppedAlbum, formatAlbum.c_str(), FIELD_SIZE);
-            if (tempAlbum[0] != '\0') {
+            WampyText::CopyUtf8(croppedAlbum, sizeof(croppedAlbum), formatAlbum);
+            if (croppedAlbum[0] != '\0') {
                 font->FontSize = fontSizeTTF;
-                CropTextToWidth(croppedAlbum, ImGui::GetFont(), fontSizeTTF, Tapes[config->Get(tapeType)->tape].titleWidth);
+                CropTextToWidth(croppedAlbum, sizeof(croppedAlbum), ImGui::GetFont(), fontSizeTTF, Tapes[config->Get(tapeType)->tape].titleWidth);
                 font->FontSize = sizeBackup;
             }
         }
 
-        strncpy(title, croppedTitle, FIELD_SIZE);
-        strncpy(artist, croppedArtist, FIELD_SIZE);
-        strncpy(album, croppedAlbum, FIELD_SIZE);
+        WampyText::CopyUtf8(title, sizeof(title), croppedTitle);
+        WampyText::CopyUtf8(artist, sizeof(artist), croppedArtist);
+        WampyText::CopyUtf8(album, sizeof(album), croppedAlbum);
     }
 
     bool Cassette::useDirectoryConfig(const std::string &filename) {

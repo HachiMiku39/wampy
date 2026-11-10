@@ -40,6 +40,7 @@ namespace AppConfig {
         ini["wampy"]["badBoots"] = std::to_string(badBoots);
         ini["wampy"]["activeSkin"] = ESkinToName[activeSkin];
         ini["wampy"]["limitFPS"] = std::to_string(limitFPS);
+        ini["wampy"]["wm1azFullscreen"] = std::to_string(wm1azFullscreen);
         ini["wampy"]["debug"] = std::to_string(debug);
         ini["wampy"]["forceConnector"] = forceConnector;
         ini["wampy"]["windowOffset"] = std::to_string(windowOffset);
@@ -119,6 +120,7 @@ namespace AppConfig {
         MPDSocketPath = MPDDefaultAddress;
         forceConnector = "";
         windowOffset = EWindowOffset_LEFT;
+        wm1azFullscreen = true;
         showFmInSettings = true;
         fmRecording.Codec = "mp3";
         fmRecording.Storage = "internal";
@@ -142,6 +144,7 @@ namespace AppConfig {
         // Clang-Tidy: 'atoi' used to convert a string to an integer value, but function will not report conversion errors; consider using 'strtol' instead
         // NOLINTBEGIN
         badBoots = std::atoi(ini["wampy"]["badBoots"].c_str());
+        wm1azFullscreen = ini["wampy"]["wm1azFullscreen"].empty() || ini["wampy"]["wm1azFullscreen"] == "1";
         if (ini["wampy"]["limitFPS"].empty()) {
             limitFPS = false;
         } else {
@@ -157,7 +160,7 @@ namespace AppConfig {
             language = "en";
         }
         digitalClock.language = language;
-        winamp.language = "ru";
+        winamp.language = language;
         cassette.language = language;
 
         switch (windowOffsetTemp) {

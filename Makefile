@@ -273,3 +273,7 @@ build-rec-x86:
 			cd cmake-build-debug-rec && \
             cmake -DDESKTOP=1 .. && \
 			cmake --build . -v --target rec"
+
+.PHONY: test-display
+test-display:
+	sh scripts/test-display.sh

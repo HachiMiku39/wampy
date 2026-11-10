@@ -1,3 +1,5 @@
+#include "text/font_fallback.h"
+#include "text/utf8.h"
 #include "winamp.h"
 
 #include "../skin.h"
@@ -1696,14 +1698,15 @@ namespace Winamp {
 
             auto d = &playlist[i];
             memset(d->text, 0, PLAYLIST_SONG_SIZE);
-            snprintf(d->text, PLAYLIST_SONG_SIZE, "%s. %s - %s", song.Track.c_str(), song.Artist.c_str(), song.Title.c_str());
 
             ImFont *f = FontRegular;
             if (config->useBitmapFontInPlaylist) {
                 f = FontBitmap;
             }
 
-            CropTextToWidth(d->text, f, f->FontSize, playlistSongWidth);
+            // snprintf may truncate inside a UTF-8 character; normalize before measuring.
+            WampyText::CopyUtf8(d->text, PLAYLIST_SONG_SIZE, std::string(song.Track + ". " + song.Artist + " - " + song.Title));
+            CropTextToWidth(d->text, PLAYLIST_SONG_SIZE, f, f->FontSize, playlistSongWidth);
             snprintf(d->duration, PLAYLIST_DURATION_SIZE, "%d:%02d", song.Duration / 60, song.Duration % 60);
             d->durationSize = f->CalcTextSizeA(f->FontSize, FLT_MAX, -1.0, d->duration).x;
         }
@@ -1836,7 +1839,7 @@ namespace Winamp {
 
         ImFontGlyphRangesBuilder range;
         range.Clear();
-        ImVector<ImWchar> gr;
+        static ImVector<ImWchar> gr;
         gr.clear();
         static const ImWchar rr[] = {0x0020, 0x007F, 0};
         range.AddRanges(rr);
@@ -1868,7 +1871,8 @@ namespace Winamp {
 
         range.BuildRanges(&gr);
 
-        ImFont *a = io.Fonts->AddFontFromFileTTF(ttfFontPath.c_str(), fontSizeTTF, nullptr, gr.Data);
+        ImFont *a = WampyText::AddPrimaryFont(io.Fonts, ttfFontPath, fontSizeTTF, gr.Data);
+        WampyText::AddSonyFontFallbacks(io.Fonts, a, fontSizeTTF, gr.Data, ttfFontPath);
         ImFont *font = io.Fonts->AddFontFromMemoryCompressedBase85TTF(empty_compressed_data_base85, 13.0f);
 
         char alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ\"@   0123456789..:()-'!_+\\/[]^&%,=$#\x0\x0\x0?*";

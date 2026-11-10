@@ -1,0 +1,44 @@
+name: WM1AZ ARM build
+on:
+  push:
+    branches: [codex/wm1az-display]
+    paths: ['scripts/arm/**', '.github/workflows/wm1az-arm.yml', 'src/**', 'libs/*.patch']
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build utilities
+        run: sudo apt-get update && sudo apt-get install -y libcrypto++-dev zlib1g-dev p7zip-full unzip ninja-build autoconf automake libtool tcl pkg-config gettext e2fsprogs cpio qemu-user nsis
+      - uses: actions/cache@v4
+        id: sdk-cache
+        with:
+          path: .arm-cache
+          key: wm1az-public-sdk-v1
+      - name: Prepare pinned ARM compiler and runtime SDK
+        run: bash scripts/arm/prepare.sh
+      - name: Compile ARM application
+        run: python3 scripts/arm/compile.py
+      - name: Check ARM runtime loader
+        run: python3 scripts/arm/check-loader.py
+      - name: Assemble original service updater packages
+        run: python3 scripts/arm/package.py
+      - name: Save build outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wm1az-arm-build
+          path: |
+            .arm-build/output/
+            .arm-build/logs/
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Preserve public compiler cache
+        if: always() && steps.sdk-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .arm-cache
+          key: wm1az-public-sdk-v1

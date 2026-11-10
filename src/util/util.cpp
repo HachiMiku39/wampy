@@ -1,5 +1,6 @@
 #include "util.h"
 #include "../wstring.h"
+#include "text/font_text.h"
 #include "dlog.h"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/matrix_transform.hpp"
@@ -157,15 +158,8 @@ void printFPS() {
     ImGui::Text("Average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
 }
 
-void CropTextToWidth(char *text, ImFont *font, float fontSize, float maxWidth) {
-    const char *remaining;
-    font->CalcTextSizeA(fontSize, maxWidth, -1.0f, text, nullptr, &remaining);
-    if (strlen(remaining) > 0) {
-        auto r = (char *)remaining;
-        r[0] = '.';
-        r[1] = '.';
-        r[2] = '\0';
-    }
+void CropTextToWidth(char *text, size_t capacity, ImFont *font, float fontSize, float maxWidth) {
+    WampyText::CropUtf8(text, capacity, font, fontSize, maxWidth);
 }
 
 std::string CalculateTextWidth(std::string text, float maxWidth) {

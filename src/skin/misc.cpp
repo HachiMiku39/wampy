@@ -1,5 +1,6 @@
 #include "langToString/langToString.h"
 #include "skin.h"
+#include "display/viewport.h"
 
 #include <libintl.h>
 
@@ -115,6 +116,7 @@ void Skin::Misc() {
 
         ImGui::TableNextColumn();
         ImGui::TableNextColumn();
+        ImGui::BeginDisabled(WampyDisplay::viewport.FillsScreen());
         if (ImGui::BeginCombo("##windowPos", gettext(WindowOffsetToString.at(config->windowOffset).c_str()), ImGuiComboFlags_HeightRegular)) {
             for (const auto &entry : WindowOffsetToString) {
                 if (ImGui::Selectable(gettext(entry.second.c_str()), false)) {
@@ -126,6 +128,18 @@ void Skin::Misc() {
             }
             ImGui::EndCombo();
         }
+        ImGui::EndDisabled();
+
+#ifndef DESKTOP
+        if (WampyDisplay::viewport.IsWM1AZ()) {
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            if (ImGui::Checkbox(gettext("WM1A/Z full screen"), &config->wm1azFullscreen)) {
+                config->Save();
+                CalcWindowPos();
+            }
+        }
+#endif
 
         ImGui::TableNextRow();
         ImGui::TableNextColumn();

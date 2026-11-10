@@ -1,3 +1,4 @@
+#include "text/font_fallback.h"
 #include "digital_clock.h"
 #include "../skin.h"
 #include "imgui_impl_opengl3.h"
@@ -387,7 +388,7 @@ namespace DigitalClock {
 
         ImFontGlyphRangesBuilder range;
         range.Clear();
-        ImVector<ImWchar> gr;
+        static ImVector<ImWchar> gr;
         gr.clear();
 
         // no need to pull chars from db, skin has no text
@@ -427,7 +428,8 @@ namespace DigitalClock {
             fp = FontPathCustom2;
         }
 
-        *fontRegular = io.Fonts->AddFontFromFileTTF(fp.c_str(), fontSizeTTF, nullptr, gr.Data);
+        *fontRegular = WampyText::AddPrimaryFont(io.Fonts, fp, fontSizeTTF, gr.Data);
+        WampyText::AddSonyFontFallbacks(io.Fonts, *fontRegular, fontSizeTTF, gr.Data, fp);
 
         ImGui_ImplOpenGL3_DestroyFontsTexture();
         ImGui_ImplOpenGL3_CreateFontsTexture();

@@ -1,8 +1,17 @@
 diff --git a/backends/imgui_impl_glfw.cpp b/backends/imgui_impl_glfw.cpp
-index 3c95f178..abcecb33 100644
 --- a/backends/imgui_impl_glfw.cpp
 +++ b/backends/imgui_impl_glfw.cpp
-@@ -295,6 +295,13 @@ static ImGuiKey ImGui_ImplGlfw_KeyToImGuiKey(int key)
+@@ -85,6 +85,9 @@
+ #include "imgui.h"
+ #ifndef IMGUI_DISABLE
+ #include "imgui_impl_glfw.h"
++#ifndef DESKTOP
++#include "../../../src/display/viewport.h"
++#endif
+ 
+ // Clang warnings with -Weverything
+ #if defined(__clang__)
+@@ -309,6 +312,13 @@
          case GLFW_KEY_F22: return ImGuiKey_F22;
          case GLFW_KEY_F23: return ImGuiKey_F23;
          case GLFW_KEY_F24: return ImGuiKey_F24;
@@ -16,34 +25,106 @@ index 3c95f178..abcecb33 100644
          default: return ImGuiKey_None;
      }
  }
+@@ -428,6 +438,11 @@
+         bd->PrevUserCallbackCursorPos(window, x, y);
+ 
+     ImGuiIO& io = ImGui::GetIO();
++#ifndef DESKTOP
++    const auto logical = WampyDisplay::viewport.ToLogical({x, y});
++    x = logical.x;
++    y = logical.y;
++#endif
+     io.AddMousePosEvent((float)x, (float)y);
+     bd->LastValidMousePos = ImVec2((float)x, (float)y);
+ }
+@@ -730,13 +745,24 @@
+         {
+             // (Optional) Set OS mouse position from Dear ImGui if requested (rarely used, only when ImGuiConfigFlags_NavEnableSetMousePos is enabled by user)
+             if (io.WantSetMousePos)
++            {
++#ifdef DESKTOP
+                 glfwSetCursorPos(window, (double)io.MousePos.x, (double)io.MousePos.y);
++#else
++                glfwSetCursorPos(window, io.MousePos.x * WampyDisplay::viewport.ScaleX(), io.MousePos.y * WampyDisplay::viewport.ScaleY());
++#endif
++            }
+ 
+             // (Optional) Fallback to provide mouse position when focused (ImGui_ImplGlfw_CursorPosCallback already provides this when hovered or captured)
+             if (bd->MouseWindow == nullptr)
+             {
+                 double mouse_x, mouse_y;
+                 glfwGetCursorPos(window, &mouse_x, &mouse_y);
++#ifndef DESKTOP
++                const auto logical = WampyDisplay::viewport.ToLogical({mouse_x, mouse_y});
++                mouse_x = logical.x;
++                mouse_y = logical.y;
++#endif
+                 bd->LastValidMousePos = ImVec2((float)mouse_x, (float)mouse_y);
+                 io.AddMousePosEvent((float)mouse_x, (float)mouse_y);
+             }
 diff --git a/backends/imgui_impl_opengl3.cpp b/backends/imgui_impl_opengl3.cpp
-index bbe96c42..1f939b22 100644
 --- a/backends/imgui_impl_opengl3.cpp
 +++ b/backends/imgui_impl_opengl3.cpp
-@@ -602,8 +602,29 @@ void    ImGui_ImplOpenGL3_RenderDrawData(ImDrawData* draw_data)
+@@ -115,6 +115,9 @@
+ #include "imgui.h"
+ #ifndef IMGUI_DISABLE
+ #include "imgui_impl_opengl3.h"
++#ifndef DESKTOP
++#include "../../../src/display/viewport.h"
++#endif
+ #include <stdio.h>
+ #include <stdint.h>     // intptr_t
+ #if defined(__APPLE__)
+@@ -443,6 +446,7 @@
+     // Setup viewport, orthographic projection matrix
+     // Our visible imgui space lies from draw_data->DisplayPos (top left) to draw_data->DisplayPos+data_data->DisplaySize (bottom right). DisplayPos is (0,0) for single viewport apps.
+     GL_CALL(glViewport(0, 0, (GLsizei)fb_width, (GLsizei)fb_height));
++#ifdef DESKTOP
+     float L = draw_data->DisplayPos.x;
+     float R = draw_data->DisplayPos.x + draw_data->DisplaySize.x;
+     float T = draw_data->DisplayPos.y;
+@@ -457,9 +461,16 @@
+         { 0.0f,         0.0f,        -1.0f,   0.0f },
+         { (R+L)/(L-R),  (T+B)/(B-T),  0.0f,   1.0f },
+     };
++#else
++    const auto ortho_projection = WampyDisplay::viewport.Projection();
++#endif
+     glUseProgram(bd->ShaderHandle);
+     glUniform1i(bd->AttribLocationTex, 0);
++#ifdef DESKTOP
+     glUniformMatrix4fv(bd->AttribLocationProjMtx, 1, GL_FALSE, &ortho_projection[0][0]);
++#else
++    glUniformMatrix4fv(bd->AttribLocationProjMtx, 1, GL_FALSE, ortho_projection.data());
++#endif
+ 
+ #ifdef IMGUI_IMPL_OPENGL_MAY_HAVE_BIND_SAMPLER
+     if (bd->GlVersion >= 330 || bd->GlProfileIsES3)
+@@ -488,8 +499,14 @@
+ void    ImGui_ImplOpenGL3_RenderDrawData(ImDrawData* draw_data)
+ {
+     // Avoid rendering when minimized, scale coordinates for retina displays (screen coordinates != framebuffer coordinates)
++#ifdef DESKTOP
+     int fb_width = (int)(draw_data->DisplaySize.x * draw_data->FramebufferScale.x);
+     int fb_height = (int)(draw_data->DisplaySize.y * draw_data->FramebufferScale.y);
++#else
++    // Logical skin dimensions differ from the square EGL rendering surface.
++    int fb_width = WampyDisplay::viewport.SurfaceWidth();
++    int fb_height = WampyDisplay::viewport.SurfaceHeight();
++#endif
+     if (fb_width <= 0 || fb_height <= 0)
+         return;
+ 
+@@ -603,8 +620,15 @@
                  if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
                      continue;
  
 -                // Apply scissor/clipping rectangle (Y is inverted in OpenGL)
 +#ifndef DESKTOP
-+                auto sinr = -1;
-+                auto cosr = 0;
-+                auto x1 = (int) clip_min.x;
-+                auto y1 = (int) ((float) 480 - clip_max.y );
-+                auto width = (int) (clip_max.x - clip_min.x);
-+                auto height = (int) (clip_max.y - clip_min.y);
-+//                printf("want to cull %f %f %d %d\n", clip_min.x, fb_height - clip_max.y, width, height);
-+                auto originX = 0;
-+                auto originY = 0;
-+
-+                auto newX1 = ((x1 - originX) * cosr - (y1 - originY) * sinr) + originX;
-+//    auto newX2 = ((width - originX) * cosr - (height - originY) * sinr) + originX;
-+                auto newY1 = ((x1 - originX) * sinr + (-y1 - originY) * cosr) + originY;
-+//    auto newY2 = ((x2 - originX) * sinr + (-y2 - originY) * cosr) + originY;
-+
-+
-+                GL_CALL(glScissor(newX1, newY1, height, width+800));
-+//                printf("cull %d %d (%d %d) %d %d\n", newX1, newY1, x1, y1, height, width );
++                const auto scissor = WampyDisplay::viewport.Clip({clip_min.x, clip_min.y, clip_max.x, clip_max.y});
++                if (scissor.width == 0 || scissor.height == 0)
++                    continue;
++                GL_CALL(glScissor(scissor.x, scissor.y, scissor.width, scissor.height));
 +#else
 +//                 Apply scissor/clipping rectangle (Y is inverted in OpenGL)
                  GL_CALL(glScissor((int)clip_min.x, (int)((float)fb_height - clip_max.y), (int)(clip_max.x - clip_min.x), (int)(clip_max.y - clip_min.y)));
@@ -52,10 +133,9 @@ index bbe96c42..1f939b22 100644
                  // Bind texture, Draw
                  GL_CALL(glBindTexture(GL_TEXTURE_2D, (GLuint)(intptr_t)pcmd->GetTexID()));
 diff --git a/imgui.cpp b/imgui.cpp
-index 31220bdf..556bdc86 100644
 --- a/imgui.cpp
 +++ b/imgui.cpp
-@@ -8479,6 +8479,7 @@ static const char* const GKeyNames[] =
+@@ -8929,6 +8929,7 @@
      "Keypad7", "Keypad8", "Keypad9", "KeypadDecimal", "KeypadDivide", "KeypadMultiply",
      "KeypadSubtract", "KeypadAdd", "KeypadEnter", "KeypadEqual",
      "AppBack", "AppForward",
@@ -63,7 +143,7 @@ index 31220bdf..556bdc86 100644
      "GamepadStart", "GamepadBack",
      "GamepadFaceLeft", "GamepadFaceRight", "GamepadFaceUp", "GamepadFaceDown",
      "GamepadDpadLeft", "GamepadDpadRight", "GamepadDpadUp", "GamepadDpadDown",
-@@ -8946,7 +8947,7 @@ bool ImGui::IsMouseClicked(ImGuiMouseButton button, ImGuiInputFlags flags, ImGui
+@@ -9399,7 +9400,7 @@
      IM_ASSERT((flags & ~ImGuiInputFlags_SupportedByIsMouseClicked) == 0); // Passing flags not supported by this function! // FIXME: Could support RepeatRate and RepeatUntil flags here.
  
      const bool repeat = (flags & ImGuiInputFlags_Repeat) != 0;
@@ -73,10 +153,9 @@ index 31220bdf..556bdc86 100644
          return false;
  
 diff --git a/imgui.h b/imgui.h
-index a22e7ae9..651ec16b 100644
 --- a/imgui.h
 +++ b/imgui.h
-@@ -1420,6 +1420,13 @@ enum ImGuiKey : int
+@@ -1479,6 +1479,13 @@
      ImGuiKey_KeypadEqual,
      ImGuiKey_AppBack,               // Available on some keyboard/mouses. Often referred as "Browser Back"
      ImGuiKey_AppForward,
@@ -91,10 +170,9 @@ index a22e7ae9..651ec16b 100644
      // Gamepad (some of those are analog values, 0.0f to 1.0f)                          // NAVIGATION ACTION
      // (download controller mapping PNG/PSD at http://dearimgui.com/controls_sheets)
 diff --git a/imgui_widgets.cpp b/imgui_widgets.cpp
-index d261ba8f..33316a4a 100644
 --- a/imgui_widgets.cpp
 +++ b/imgui_widgets.cpp
-@@ -1835,6 +1835,7 @@ bool ImGui::BeginComboPopup(ImGuiID popup_id, const ImRect& bb, ImGuiComboFlags
+@@ -1940,6 +1940,7 @@
              ImVec2 size_expected = CalcWindowNextAutoFitSize(popup_window);
              popup_window->AutoPosLastDirection = (flags & ImGuiComboFlags_PopupAlignLeft) ? ImGuiDir_Left : ImGuiDir_Down; // Left = "Below, Toward Left", Down = "Below, Toward Right (default)"
              ImRect r_outer = GetPopupAllowedExtentRect(popup_window);
