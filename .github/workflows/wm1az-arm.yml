@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install build utilities
-        run: sudo apt-get update && sudo apt-get install -y libcrypto++-dev zlib1g-dev p7zip-full ninja-build autoconf automake libtool tcl pkg-config gettext e2fsprogs
+        run: sudo apt-get update && sudo apt-get install -y libcrypto++-dev zlib1g-dev p7zip-full ninja-build autoconf automake libtool tcl pkg-config gettext e2fsprogs cpio
       - uses: actions/cache@v4
         with:
           path: .arm-cache

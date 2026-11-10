@@ -49,15 +49,10 @@ arm-linux-gnueabihf-readelf -d "$BUILD/base/payload/wampy" | tee "$BUILD/logs/up
 # from the existing upstream service package, not from this system image.
 fetch 'https://walkman.update.sony.net/fw/pc/A50/J/NW-A50_V1_02.exe' "$BUILD/base/sony-a50.exe"
 mkdir -p "$BUILD/sony" "$BUILD/sony/entries"
-status=0
-7z x -y -o"$BUILD/sony" "$BUILD/base/sony-a50.exe" || status=$?
-# 7-Zip uses exit 1 for warnings. The UPG's own checksum/signature is
-# independently checked below; an extraction error (>1) remains fatal.
-if (( status > 1 )); then exit "$status"; fi
-find "$BUILD/sony" -maxdepth 5 -type f -printf '%P %s bytes\n' 
+python3 scripts/arm/extract-sony.py "$BUILD/base/sony-a50.exe" "$BUILD/sony"
 SONY_UPG=$(find "$BUILD/sony" -name NW_WM_FW.UPG | head -1)
 test -n "$SONY_UPG"
-"$UPGTOOL" -m nw-a50 -e -z 6 -o "$BUILD/sony/entries/" "$SONY_UPG"
+"$UPGTOOL" -m nw-a50 -e -z 2 -z 6 -o "$BUILD/sony/entries/" "$SONY_UPG"
 SONY_IMAGE="$BUILD/sony/entries/6.bin"
 for name in libMali_linux.so libasound.so libsqlite3.so; do
   debugfs -R "dump /lib/$name $BUILD/sysroot/lib/$name" "$SONY_IMAGE"
@@ -65,6 +60,14 @@ done
 for name in libicudata.so.61 libicuuc.so.61 libicui18n.so.61; do
   debugfs -R "dump /vendor/sony/lib/$name $BUILD/sysroot/lib/$name" "$SONY_IMAGE"
   ln -sf "$name" "$BUILD/sysroot/lib/${name%.61}"
+done
+python3 scripts/arm/extract-rootfs.py "$BUILD/sony/entries/2.bin" "$BUILD/sony/rootfs.cpio"
+mkdir -p "$BUILD/sony/rootfs"
+(cd "$BUILD/sony/rootfs"; cpio -idm --no-absolute-filenames 'lib/*' < "$BUILD/sony/rootfs.cpio")
+cp -a "$BUILD/sony/rootfs/lib/"* "$BUILD/sysroot/lib/"
+for pair in 'libc.so.6 libc.so' 'libpthread.so.0 libpthread.so' 'libdl.so.2 libdl.so' 'librt.so.1 librt.so'; do
+  read -r target link <<< "$pair"
+  ln -sf "$target" "$BUILD/sysroot/lib/$link"
 done
 file "$BUILD/sysroot/lib/"*.so*
 # Linker names for the unmodified upstream service dependencies.
