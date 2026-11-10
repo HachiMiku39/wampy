@@ -55,7 +55,7 @@ while IFS= read -r -d '' cabinet; do
 done < <(find "$BUILD/sony" -name '*.cab' -print0)
 SONY_UPG=$(find "$BUILD/sony" -name NW_WM_FW.UPG | head -1)
 test -n "$SONY_UPG"
-"$UPGTOOL" -m nw-a50 -e -z 2 -z 6 -o "$BUILD/sony/entries/" "$SONY_UPG"
+"$UPGTOOL" -m nw-a50 -e -z 6 -o "$BUILD/sony/entries/" "$SONY_UPG"
 SONY_IMAGE="$BUILD/sony/entries/6.bin"
 for name in libMali_linux.so libasound.so libsqlite3.so; do
   debugfs -R "dump /lib/$name $BUILD/sysroot/lib/$name" "$SONY_IMAGE"

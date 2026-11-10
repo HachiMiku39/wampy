@@ -160,7 +160,7 @@ namespace AppConfig {
             language = "en";
         }
         digitalClock.language = language;
-        winamp.language = "ru";
+        winamp.language = language;
         cassette.language = language;
 
         switch (windowOffsetTemp) {

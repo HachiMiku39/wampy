@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install build utilities
-        run: sudo apt-get update && sudo apt-get install -y libcrypto++-dev zlib1g-dev p7zip-full ninja-build autoconf automake libtool tcl pkg-config gettext e2fsprogs cpio
+        run: sudo apt-get update && sudo apt-get install -y libcrypto++-dev zlib1g-dev p7zip-full ninja-build autoconf automake libtool tcl pkg-config gettext e2fsprogs cpio qemu-user nsis
       - uses: actions/cache@v4
         with:
           path: .arm-cache
@@ -21,6 +21,10 @@ jobs:
         run: bash scripts/arm/prepare.sh
       - name: Compile ARM application
         run: python3 scripts/arm/compile.py
+      - name: Check ARM runtime loader
+        run: python3 scripts/arm/check-loader.py
+      - name: Assemble original service updater packages
+        run: python3 scripts/arm/package.py
       - name: Save build outputs
         if: always()
         uses: actions/upload-artifact@v4
