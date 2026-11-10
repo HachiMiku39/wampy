@@ -3,6 +3,10 @@ Wampy
 
 Interface addon for NW-A50 / ZX300 / WM1A / WM1Z series WALKMAN® players.
 
+This fork's [WM1A/Z development preview](WM1AZ.md) adds an optional 854 × 480
+full-screen transform and matching touch input. ARM build and hardware validation
+are pending; this branch does not provide a validated WM1A/Z installer.
+
 Also works on Walkman One for [NW-A50][1] / [A40][2] / [A30][3] / [ZX300][4] / [WM1A/Z][5].
 
 [1]: https://www.mrwalkman.com/p/sony-nw-a50series-custom-firmware.html

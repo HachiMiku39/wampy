@@ -75,6 +75,7 @@ namespace AppConfig {
         bool debug{};
         int badBoots{};
         bool limitFPS = false;
+        bool wm1azFullscreen = true;
         std::string forceConnector{};
         EWindowOffset windowOffset = EWindowOffset_LEFT;
         std::vector<int> fmPresets{};

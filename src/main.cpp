@@ -8,10 +8,15 @@
 
 #include <chrono>
 #include <csignal>
+#include <thread>
 
-#include "glm/glm/ext/matrix_transform.hpp"
-#include "glm/glm/trigonometric.hpp"
-#include "glm/gtc/type_ptr.hpp"
+#ifndef DESKTOP
+#include <fcntl.h>
+#include <linux/fb.h>
+#include <sys/ioctl.h>
+#endif
+
+#include "display/viewport.h"
 
 #include "skin.h"
 #include "util/util.h"
@@ -21,7 +26,7 @@
 #include <vector>
 
 #include "Version.h"
-#include "shader.h"
+#include "shader.h" // GL debug callback
 
 #include "connector/hagoromo.h"
 #include "langToString/langToString.h"
@@ -35,7 +40,8 @@
 
 int GLFW_WIDTH = 800.0f;
 int GLFW_HEIGHT = 800.0f;
-ImVec2 screenMode = ImVec2((float)GLFW_WIDTH, (float)GLFW_HEIGHT);
+ImVec2 screenMode = ImVec2(IMGUI_WIDTH, IMGUI_HEIGHT);
+WampyDisplay::Viewport WampyDisplay::viewport;
 
 #ifdef DESKTOP
 
@@ -50,59 +56,6 @@ std::string dumpDir = "/contents/wampy/log";
 #define TARGET_FPS 24
 
 static void glfw_error_callback(int error, const char *description) { DLOG("Glfw Error %d: %s\n", error, description); }
-
-void drawCallback(const ImDrawList *dl, const ImDrawCmd *cmd) {
-    //    printf("cliprect %f %f %f %f\n", cmd->ClipRect.x, cmd->ClipRect.y, cmd->ClipRect.z, cmd->ClipRect.w);
-    auto newCmd = (ImDrawCmd *)cmd;
-
-    ImVec2 clip_min((newCmd->ClipRect.x - 0) * 1, (newCmd->ClipRect.y - 0) * 1);
-    ImVec2 clip_max((newCmd->ClipRect.z - 0) * 1, (newCmd->ClipRect.w - 0) * 1);
-
-    auto sinr = -1;
-    auto cosr = 0;
-    auto x1 = (int)clip_min.x;
-    auto y1 = (int)((float)IMGUI_WIDTH - clip_max.y);
-    auto width = (int)(clip_max.x - clip_min.x);
-    auto height = (int)(clip_max.y - clip_min.y);
-    auto originX = 0;
-    auto originY = 0;
-
-    auto newX1 = ((x1 - originX) * cosr - (y1 - originY) * sinr) + originX;
-    //    auto newX2 = ((width - originX) * cosr - (height - originY) * sinr) + originX;
-    auto newY1 = ((x1 - originX) * sinr + (-y1 - originY) * cosr) + originY;
-    //    auto newY2 = ((x2 - originX) * sinr + (-y2 - originY) * cosr) + originY;
-
-    newCmd->ClipRect = ImVec4((float)newX1, (float)newY1, (float)height, (float)width);
-    //    printf("cliprect %f %f %f %f\n", cmd->ClipRect.x, cmd->ClipRect.y, cmd->ClipRect.z, cmd->ClipRect.w);
-    glScissor(newX1, newY1, height, width);
-
-    auto sp = (GLuint)(long)cmd->UserCallbackData;
-    glUseProgram(sp);
-
-    glUniform1i(glGetUniformLocation(sp, "Texture"), 0);
-
-    glm::mat4 Projection = glm::ortho((float)-GLFW_WIDTH, 0.0f, (float)GLFW_HEIGHT, 0.0f);
-    glm::mat4 ViewTranslate = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-
-    //    glm::mat4 ViewRotateX = glm::rotate( ViewTranslate, glm::radians(0.0f), glm::vec3(1.0f, 0.0f, 0.0f) );
-    //    glm::mat4 ViewRotateY = glm::rotate( ViewRotateX, glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0f) );
-    glm::mat4 ViewRotateZ = glm::rotate(ViewTranslate, glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    glm::mat4 View = ViewRotateZ;
-
-    glm::mat4 Model = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f));
-
-    glm::mat4 MVP = Projection * View * Model;
-    glm::mat4 tMVP = glm::translate(MVP, glm::vec3(0, (float)GLFW_WIDTH - IMGUI_HEIGHT, 0));
-    //    glm::mat4 tMVP = glm::translate(MVP, glm::vec3(0, 0, 0));
-    GLint uniTrans = glGetUniformLocation(sp, "ProjMtx");
-    glUniformMatrix4fv(uniTrans, 1, GL_FALSE, glm::value_ptr(tMVP));
-
-    //    auto color = (GLuint) glGetUniformLocation(sp, "Color");
-    //    glUniform4f((GLint) color, 1.0f, 1.0f, 0.0f, 1.0f);
-    //
-    //    auto uv = (GLuint) glGetUniformLocation(sp, "UV");
-    //    glUniform2f((GLint) uv, 0.01f, 0.5f);
-}
 
 GLFWwindow *CreateWindow() {
     glfwSetErrorCallback(glfw_error_callback);
@@ -149,6 +102,25 @@ GLFWwindow *CreateWindow() {
         screenMode.x = (float)vmode->width;
         screenMode.y = (float)vmode->height;
     }
+
+#ifndef DESKTOP
+    // Keep the existing square EGL surface, but read the actual portrait panel.
+    // The fake GLFW monitor reports a square mode for this platform.
+    screenMode = ImVec2((float)GLFW_WIDTH, IMGUI_HEIGHT);
+    const int framebuffer = open("/dev/graphics/fb0", O_RDONLY | O_CLOEXEC);
+    if (framebuffer >= 0) {
+        struct fb_var_screeninfo info{};
+        if (ioctl(framebuffer, FBIOGET_VSCREENINFO, &info) == 0 &&
+            info.xres > 0 && info.yres > 0 && info.xres <= 4096 && info.yres <= 4096) {
+            screenMode = ImVec2((float)std::max(info.xres, info.yres), (float)std::min(info.xres, info.yres));
+        } else {
+            DLOG("Cannot read panel dimensions; using legacy 480-pixel panel height\n");
+        }
+        close(framebuffer);
+    } else {
+        DLOG("Cannot open framebuffer; using legacy 480-pixel panel height\n");
+    }
+#endif
 
     GLFWwindow *window = glfwCreateWindow(GLFW_WIDTH, GLFW_HEIGHT, title, monitor, nullptr);
     if (window == nullptr) {
@@ -351,8 +323,6 @@ int main(int, char **) {
     glfwSetCursorPosCallback(window, cursor_position_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
 
-    GLuint shaderProgram = ShaderProgram(vertexSource, fragmentSource);
-
     ImVec2 imguiWindowPos = ImVec2(0, 0);
     ImVec2 imguiWindowSize = ImVec2(IMGUI_WIDTH, IMGUI_HEIGHT);
 
@@ -501,8 +471,8 @@ int main(int, char **) {
 #endif
 
     int display_w, display_h;
-    auto lastTime = glfwGetTime();
     while (!glfwWindowShouldClose(window)) {
+        const auto frameStart = std::chrono::steady_clock::now();
 #ifdef DESKTOP
         glfwPollEvents();
 #endif
@@ -515,6 +485,10 @@ int main(int, char **) {
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
+#ifndef DESKTOP
+        ImGui::GetIO().DisplaySize = ImVec2((float)WampyDisplay::viewport.LogicalWidth(), IMGUI_HEIGHT);
+        ImGui::GetIO().DisplayFramebufferScale = ImVec2(1, 1);
+#endif
         ImGui::NewFrame();
 
         ImGui::SetNextWindowPos(imguiWindowPos);
@@ -526,9 +500,6 @@ int main(int, char **) {
 
         ImGui::Begin("1", nullptr, window_flags);
 
-#ifndef DESKTOP
-        ImGui::GetBackgroundDrawList()->AddCallback(drawCallback, (void *)shaderProgram);
-#endif
         skin.Draw();
 
         //        DrawWindowRects();
@@ -539,6 +510,9 @@ int main(int, char **) {
         ImGui::Render();
 
         glfwGetFramebufferSize(window, &display_w, &display_h);
+#ifndef DESKTOP
+        WampyDisplay::viewport.SetSurface(display_w, display_h);
+#endif
         glViewport(0, 0, display_w, display_h);
         glClearColor(0.0f, 0.0f, 0.0f, 1.00f);
         glClear(GL_COLOR_BUFFER_BIT);
@@ -550,10 +524,9 @@ int main(int, char **) {
         skin.LoadUpdatedSkin();
 
         if (config.limitFPS) {
-            // https://github.com/glfw/glfw/issues/1308
-            while (glfwGetTime() < lastTime + (1.0 / TARGET_FPS)) {
-            }
-            lastTime += 1.0 / TARGET_FPS;
+            // Sleep only for the remainder of this frame. A screen wake must
+            // not trigger catch-up frames or a CPU spin while waiting.
+            std::this_thread::sleep_until(frameStart + std::chrono::microseconds(1000000 / TARGET_FPS));
         }
     }
 

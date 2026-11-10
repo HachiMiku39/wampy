@@ -904,3 +904,7 @@ msgstr ""
 #: ../src/skin.h:55
 msgid "Change enqueued"
 msgstr ""
+
+#: src/skin/misc.cpp
+msgid "WM1A/Z full screen"
+msgstr ""

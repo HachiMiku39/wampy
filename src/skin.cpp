@@ -1,4 +1,5 @@
 #include "skin.h"
+#include "display/viewport.h"
 #include "implot_widgets.h"
 #include "mkpath.h"
 
@@ -683,6 +684,13 @@ void Skin::GetLogsDirSize() {
 
 void Skin::CalcWindowPos() const {
     assert(windowOffset);
+#ifndef DESKTOP
+    WampyDisplay::viewport.ConfigurePanel((int)screenMode.x, (int)screenMode.y, config->wm1azFullscreen);
+    if (WampyDisplay::viewport.FillsScreen()) {
+        *windowOffset = ImVec2(0, 0);
+        return;
+    }
+#endif
     switch (config->windowOffset) {
     case EWindowOffset_UNKNOWN:
         break;

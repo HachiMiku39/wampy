@@ -904,3 +904,7 @@ msgstr "invalid filter"
 #: ../src/skin.h:55
 msgid "Change enqueued"
 msgstr "Change enqueued"
+
+#: src/skin/misc.cpp
+msgid "WM1A/Z full screen"
+msgstr "WM1A/Z full screen"

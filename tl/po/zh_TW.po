@@ -903,3 +903,7 @@ msgstr "無效的濾波器"
 #: ../src/skin.h:55
 msgid "Change enqueued"
 msgstr "變更已排程"
+
+#: src/skin/misc.cpp
+msgid "WM1A/Z full screen"
+msgstr "WM1A/Z 全螢幕顯示"
