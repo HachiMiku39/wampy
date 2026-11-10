@@ -7,7 +7,11 @@ mkdir -p "$BUILD"/{logs,output,base,sysroot/lib,include} "$CACHE"
 exec > >(tee "$BUILD/logs/prepare.log") 2>&1
 fetch() {
   local url=$1 output=$2 hash=${3:-}
-  if [[ ! -s "$output" ]]; then curl --fail --location --retry 2 --connect-timeout 20 --max-time 300 "$url" -o "$output"; fi
+  if [[ ! -s "$output" ]]; then
+    curl --fail --location --retry 2 --connect-timeout 20 --max-time 300 "$url" -o "$output.download"
+    if [[ -n "$hash" ]]; then echo "$hash  $output.download" | sha256sum --check; fi
+    mv "$output.download" "$output"
+  fi
   if [[ -n "$hash" ]]; then echo "$hash  $output" | sha256sum --check; fi
 }
 fetch 'https://media.githubusercontent.com/media/kobolabs/Kobo-Reader/master/toolchain/gcc-linaro-4.9.4-2017.01-x86_64_arm-linux-gnueabihf.tar.xz' "$CACHE/gcc49.tar.xz" '22914118fd963f953824b58107015c6953b5bbdccbdcf25ad9fd9a2f9f11ac07'
@@ -83,7 +87,7 @@ mkdir -p "$BUILD/icu"
 tar -xf "$CACHE/icu61.tgz" -C "$BUILD/icu" --strip-components=1
 fetch 'https://prodgpl.blob.core.windows.net/download/Audio/NW-A57/alsa-lib-1.0.29.tar.gz' "$CACHE/alsa.tar.gz"
 mkdir -p "$BUILD/alsa"
-tar -xf "$CACHE/alsa.tar.gz" -C "$BUILD/alsa" --strip-components=1
+tar -xf "$CACHE/alsa.tar.gz" -C "$BUILD/alsa"
 (cd "$BUILD/alsa"; CC=arm-linux-gnueabihf-gcc ./configure --host=arm-linux-gnueabihf --disable-python)
 fetch 'https://github.com/toots/shine/releases/download/3.1.1/shine-3.1.1.tar.gz' "$CACHE/shine.tgz"
 mkdir -p "$BUILD/shine"
