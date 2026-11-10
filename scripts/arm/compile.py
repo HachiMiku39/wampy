@@ -24,8 +24,14 @@ def compile_one(item):
     if result.returncode: print(result.stdout,flush=True);raise RuntimeError(p)
 with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:list(pool.map(compile_one,commands))
 lib=build/'sysroot/lib';out=build/'output/wampy'
-cmd=[env['compiler'],*objects,str(build/'glfw/src/libglfw3.a'),str(build/'zlib/libz.a'),'-L'+str(lib),'-Wl,-rpath-link,'+str(lib),'-Wl,-rpath,/system/vendor/unknown321/lib:/system/vendor/sony/lib:/lib','-lMagick++-7.Q8HDRI','-lMagickWand-7.Q8HDRI','-lMagickCore-7.Q8HDRI','-lprotobuf','-ljpeg','-lshine','-lsqlite3','-licui18n','-licuuc','-licudata','-lMali_linux','-lasound','-lpthread','-ldl','-lm','-lrt','-o',str(out)]
-(build/'logs/link-command.txt').write_text(shlex.join(cmd)+'\n');subprocess.run(cmd,check=True)
+# The Sony libc.so is the real shared object, not the SDK linker script which
+# normally also adds libc_nonshared.a for the compiler's startup objects.
+nonshared=Path(subprocess.check_output([env['compiler'],'-print-file-name=libc_nonshared.a'],text=True).strip())
+assert nonshared.is_file(),nonshared
+cmd=[env['compiler'],*objects,str(build/'glfw/src/libglfw3.a'),str(build/'zlib/libz.a'),'-L'+str(lib),'-Wl,-rpath-link,'+str(lib),'-Wl,-rpath,/system/vendor/unknown321/lib:/system/vendor/sony/lib:/lib','-lMagick++-7.Q8HDRI','-lMagickWand-7.Q8HDRI','-lMagickCore-7.Q8HDRI','-lprotobuf','-ljpeg','-lshine','-lsqlite3','-licui18n','-licuuc','-licudata','-lMali_linux','-lasound','-lpthread','-ldl','-lm','-lrt',str(nonshared),'-o',str(out)]
+(build/'logs/link-command.txt').write_text(shlex.join(cmd)+'\n')
+result=subprocess.run(cmd,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
+(build/'logs/link.log').write_text(result.stdout);print(result.stdout);result.check_returncode()
 subprocess.run([env['prefix']+'strip','--strip-debug',str(out)],check=True)
 for name,args in [('elf-header',['-h']),('elf-dependencies',['-d']),('elf-versions',['-V']),('elf-attributes',['-A'])]:
     result=subprocess.check_output([env['prefix']+'readelf',*args,str(out)],text=True);(build/'output'/(name+'.txt')).write_text(result)
