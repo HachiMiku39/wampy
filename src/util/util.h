@@ -39,7 +39,7 @@ std::string ImVec4ToColor(ImVec4 v);
 
 void printFPS();
 
-void CropTextToWidth(char *text, ImFont *font, float fontSize, float maxWidth);
+void CropTextToWidth(char *text, size_t capacity, ImFont *font, float fontSize, float maxWidth);
 
 std::string CalculateTextWidth(std::string text, float maxWidth = 600.0f);
 

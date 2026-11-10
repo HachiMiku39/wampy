@@ -103,12 +103,22 @@ Wampy stores its data on internal storage. In USB mass storage mode these files 
 
 ### Some characters are missing
 
-Wampy is limited to one font due to framework specifics. If some characters are replaced with `?`, you can provide
-custom font file, overriding the default one. File must be named `font.tff` (or `font.otf`) and put
-into `<internal storage>/wampy/fonts/` directory. Supported formats: `.ttf`, `.otf`. Changes are applied after reboot.
-Invalid font files will crash Wampy; there will be no graphical indication.
+This fork keeps metadata in UTF-8, collects glyphs from titles, artists, albums
+and filenames, and supports supplementary CJK characters. It merges missing
+glyphs from the Sony fonts already on the device (Noto Sans KR, SST Japanese, DFHei Chinese,
+Noto Thai and SST UI). The song language is independent of the menu language.
+After adding music, let the Sony library finish updating and restart Wampy to
+rebuild the font atlas.
 
-You can get font files with other character sets from https://fonts.google.com/noto. Default is `NotoSansKR-Regular`.
+A custom font can be named `font.ttf` or `font.otf` in
+`<internal storage>/wampy/fonts/`. Supported system fonts still provide fallback
+glyphs. Changes apply after restarting Wampy. Malformed custom font files can
+still fail during font loading; use a valid font with the needed glyphs.
+
+Glyph fallback does not add complex-script shaping or color emoji support.
+It cannot repair MP3 tags that are already stored with the wrong encoding.
+Winamp bitmap fonts retain their skin-provided character set; use TrueType
+mode for non-English titles and playlists.
 
 ## Using Wampy
 

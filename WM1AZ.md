@@ -65,6 +65,26 @@ is a separate PCM path and is not a replacement for Sony's USB DAC / DoP path.
 
 ## Checks and build status
 
+The source preview also fixes multilingual metadata handling. Glyph collection
+includes albums and filenames, malformed UTF-8 always advances the decoder,
+and bounded text copies preserve whole characters. Uppercase fields explicitly
+decode UTF-8 and use locale-independent casing. Supplementary CJK uses ImGui's
+32-bit character configuration; GPU vertex indices remain 16-bit.
+
+Cassette, TrueType Winamp and settings fonts merge missing glyphs from the
+existing Sony Noto KR, SST Japanese, DFHei Chinese, Noto Thai and SST UI fonts. Font range
+storage remains alive for texture rebuilds. A local test using fonts from the
+supplied image found glyphs for Chinese, Japanese, Korean, Thai, accented Latin,
+Cyrillic and U+20BB7 in a compact sample atlas. This is a sample test, not a
+measurement of a full-library atlas. No extracted Sony fonts are redistributed.
+
+Run the metadata/Unicode tests after initializing and patching `libs/imgui`:
+
+```sh
+# Requires pkg-config, ICU and SQLite development headers/libraries.
+TEXT_TEST_FLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' sh scripts/test-text.sh
+```
+
 Run the dependency-free geometry and C touch tests on macOS or Linux:
 
 ```sh
@@ -85,3 +105,28 @@ Before producing an installer, complete an ARM build and verify on a backed-up
 device: all four touch corners, popup clipping, full-screen/legacy alignment,
 physical buttons, suspend/wake and return to Sony UI. Then check PCM, DSD64,
 DSD128 and Sony USB DAC mode. No device was flashed during this source change.
+
+## Installation path verified against upstream
+
+Follow the original [INSTALL.md](INSTALL.md) and the pinned `nw-installer`
+submodule. Its Windows installer selects **NW-WM1A/Z** and separately asks
+whether **Walkman One is installed**. A Walkman One device needs that package
+variant, rather than the stock WM1 variant. It copies a service UPG and a
+userdata archive to internal storage, then uses `scsitool` to request the
+normal updater flow. The installer modifies the installed boot/initramfs and
+platform files; it is not a complete Sony system-image reflash.
+
+Read-only preflight on the user's Parallels Windows 11 ARM64 VM succeeded:
+internal `WALKMAN` volume and SD card were visible, and the original x86
+`scsitool-nwz-v27.exe` listed both volumes and read Sony device information.
+The tool was extracted from upstream release v1.14.6 and its SHA-256 matched
+the pinned installer's value. The firmware identifies itself as WM1Z/3.02 with
+128 GB storage, consistent with a modified WM1 firmware; that is not evidence
+of the physical chassis model. No upgrade command was issued.
+
+Windows ARM is therefore usable for this installation front end in the tested
+VM. It does not replace the Linux ARM cross-build. The source preview still
+has no newly compiled ARM application or installable package. The service
+installer does not consume the supplied full system image, so that image's
+inner-manifest mismatch is specifically a concern for repacking the full
+firmware; it is not by itself a blocker to the original service-install route.

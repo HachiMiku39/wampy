@@ -28,7 +28,11 @@ jobs:
           for mode in device desktop; do
             flags=''
             if [ "$mode" = desktop ]; then flags='-DDESKTOP'; fi
-            c++ -std=c++11 -fsyntax-only $flags -DGLFW_INCLUDE_NONE -Ilibs/imgui -Ilibs/glfw/include libs/imgui/backends/imgui_impl_glfw.cpp
-            c++ -std=c++11 -fsyntax-only $flags -DIMGUI_IMPL_OPENGL_ES2 -Ilibs -Ilibs/glad/include -Ilibs/glad/include/KHR -Ilibs/imgui libs/imgui/backends/imgui_impl_opengl3.cpp
+            c++ -std=c++11 -fsyntax-only $flags -DIMGUI_USER_CONFIG='"../../src/imgui.config.h"' -DGLFW_INCLUDE_NONE -Ilibs/imgui -Ilibs/glfw/include libs/imgui/backends/imgui_impl_glfw.cpp
+            c++ -std=c++11 -fsyntax-only $flags -DIMGUI_USER_CONFIG='"../../src/imgui.config.h"' -Ilibs -Ilibs/glad/include -Ilibs/glad/include/KHR -Ilibs/imgui libs/imgui/backends/imgui_impl_opengl3.cpp
           done
           cc -std=c99 -D_GNU_SOURCE -fsyntax-only -Ilibs/glfw/include libs/glfw/src/null_window.c libs/glfw/src/null_monitor.c libs/glfw/src/init.c
+      - name: Install text test dependencies
+        run: sudo apt-get update && sudo apt-get install -y libicu-dev libsqlite3-dev
+      - name: Test Unicode metadata and font clipping
+        run: TEXT_TEST_FLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' sh scripts/test-text.sh

@@ -1,4 +1,6 @@
 #define IMGUI_IMPL_OPENGL_ES2 true
+// Song names may contain supplementary CJK characters such as 𠮷 (U+20BB7).
+#define IMGUI_USE_WCHAR32
 #ifndef IMGUI_DEFINE_MATH_OPERATORS
 #define IMGUI_DEFINE_MATH_OPERATORS
 #endif
